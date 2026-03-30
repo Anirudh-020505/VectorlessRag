@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+asyncpg
+alembic
+pydantic[email]
+pydantic-settings
+authlib
+itsdangerous
+httpx
+google-generativeai
+unstructured[all-docs]
+python-multipart
+python-dotenv
