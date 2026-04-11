@@ -1,0 +1,175 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 260 30% 96%;
+    --foreground: 260 25% 12%;
+
+    --card: 270 20% 99%;
+    --card-foreground: 260 25% 12%;
+
+    --popover: 270 20% 99%;
+    --popover-foreground: 260 25% 12%;
+
+    --primary: 262 65% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 270 25% 94%;
+    --secondary-foreground: 260 25% 18%;
+
+    --muted: 265 20% 92%;
+    --muted-foreground: 260 12% 48%;
+
+    --accent: 262 65% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 265 20% 88%;
+    --input: 265 20% 88%;
+    --ring: 262 65% 55%;
+
+    --radius: 1rem;
+
+    /* Immersive purple tokens */
+    --glass-bg: 270 30% 98% / 0.6;
+    --glass-border: 0 0% 100% / 0.2;
+    --glass-shadow: 0 25px 80px -20px rgba(100, 60, 180, 0.25);
+    --gradient-iridescent: linear-gradient(135deg, hsl(262 50% 88%), hsl(280 40% 90%), hsl(310 35% 92%), hsl(240 45% 90%));
+    --gradient-accent: linear-gradient(135deg, hsl(262 65% 55%), hsl(290 55% 58%));
+
+    /* Section tints */
+    --sidebar-tint: 262 60% 20% / 0.4;
+    --content-tint: 0 0% 100% / 0.8;
+    --right-panel-tint: 310 40% 95% / 0.5;
+
+    --sidebar-background: 262 60% 20% / 0.4;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 262 65% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 262 60% 85%;
+    --sidebar-accent-foreground: 262 60% 30%;
+    --sidebar-border: 265 20% 90%;
+    --sidebar-ring: 262 65% 55%;
+
+    --chat-user-bg: 262 40% 22%;
+    --chat-user-fg: 0 0% 100%;
+    --chat-bot-bg: 270 25% 97%;
+    --chat-bot-fg: 260 25% 15%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+    background: var(--gradient-iridescent);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: var(--glass-shadow);
+  }
+
+  .glass-panel-strong {
+    background: hsl(270 30% 98% / 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid hsl(0 0% 100% / 0.2);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .section-sidebar {
+    background: hsl(var(--sidebar-tint));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .section-content {
+    background: hsl(var(--content-tint));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .section-right-panel {
+    background: hsl(var(--right-panel-tint));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .icon-btn {
+    @apply w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200;
+    background: hsl(0 0% 100% / 0.15);
+  }
+  .icon-btn:hover {
+    background: hsl(0 0% 100% / 0.3);
+    transform: scale(1.05);
+  }
+  .icon-btn.active {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+
+  .chat-bubble-user {
+    background: hsl(var(--chat-user-bg));
+    color: hsl(var(--chat-user-fg));
+    @apply rounded-2xl rounded-br-md px-4 py-2.5;
+  }
+
+  .chat-bubble-bot {
+    background: hsl(var(--chat-bot-bg));
+    color: hsl(var(--chat-bot-fg));
+    @apply rounded-2xl rounded-bl-md px-4 py-2.5;
+  }
+
+  .widget-card {
+    @apply rounded-xl p-3 transition-all duration-200 cursor-pointer;
+    background: hsl(0 0% 100% / 0.4);
+  }
+  .widget-card:hover {
+    background: hsl(0 0% 100% / 0.55);
+  }
+
+  .speech-bubble {
+    @apply relative rounded-2xl px-4 py-3 text-sm;
+    background: hsl(var(--chat-user-bg));
+    color: hsl(var(--chat-user-fg));
+  }
+  .speech-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    right: 24px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid hsl(var(--chat-user-bg));
+  }
+
+  .drop-zone {
+    @apply rounded-2xl p-6 text-center transition-all duration-300 cursor-pointer;
+    border: 2px dashed hsl(262 40% 70%);
+    background: hsl(262 30% 96% / 0.5);
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: hsl(262 65% 55%);
+    background: hsl(262 40% 94% / 0.7);
+    box-shadow: 0 0 24px hsl(262 80% 55% / 0.3), 0 0 48px hsl(262 70% 60% / 0.1);
+  }
+}
