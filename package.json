@@ -1,0 +1,27 @@
+{
+  "name": "vectorless-rag-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "api",
+    "frontend"
+  ],
+  "scripts": {
+    "install-all": "npm install && cd api && npm install && cd ../frontend && npm install",
+    "dev": "concurrently \"cd api && npm start\" \"cd frontend && npm run dev\"",
+    "build": "cd api && npm run build && cd ../frontend && npm run build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^1.48.0",
+    "dotenv": "^17.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "concurrently": "^9.2.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  }
+}
