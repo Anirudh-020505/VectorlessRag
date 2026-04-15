@@ -12,7 +12,7 @@ from app.schemas import TreeNode
 logger = logging.getLogger(__name__)
 settings = get_settings()
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
-MODEL_NAME = "5.4"
+MODEL_NAME = "gpt-5.3-chat-latest"
 
 
 def _strip_fences(text: str) -> str:
@@ -34,8 +34,7 @@ async def _ask_leaf(content: str, question: str) -> str | None:
     )
     response = await client.chat.completions.create(
         model=MODEL_NAME,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2
+        messages=[{"role": "user", "content": prompt}]
     )
     answer = (response.choices[0].message.content or "").strip()
     return None if answer == "NOT_FOUND" else answer
@@ -54,8 +53,7 @@ async def _select_child_indices(node: TreeNode, question: str) -> list[int]:
     )
     response = await client.chat.completions.create(
         model=MODEL_NAME,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2
+        messages=[{"role": "user", "content": prompt}]
     )
     cleaned = _strip_fences(response.choices[0].message.content or "[]")
     try:

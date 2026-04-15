@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
-MODEL_NAME = "5.4"
+MODEL_NAME = "gpt-5.3-chat-latest"
 
 
 def _clean_gemini_json(text: str) -> str:
@@ -45,8 +45,7 @@ async def build_knowledge_tree(raw_text: str) -> TreeNode:
     try:
         response = await client.chat.completions.create(
             model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2
+            messages=[{"role": "user", "content": prompt}]
         )
         content = response.choices[0].message.content
         if not content:
