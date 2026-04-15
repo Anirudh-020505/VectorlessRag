@@ -5,78 +5,111 @@ import { ChatMessageBubble } from "./ChatMessage";
 import { FileUploadDialogue } from "./FileUploadDialogue";
 import type { ChatMessage } from "@/types";
 
-const sampleMessages: ChatMessage[] = [
-  {
-    id: "1",
-    role: "user",
-    content: "Can you help me visualize a 3D scene?",
-    timestamp: new Date(Date.now() - 300000),
-    type: "text",
-  },
-  {
-    id: "2",
-    role: "assistant",
-    content: "Sure! Please provide more details about your request, and I'd be happy to assist!",
-    timestamp: new Date(Date.now() - 240000),
-    type: "text",
-  },
-  {
-    id: "3",
-    role: "assistant",
-    content: "",
-    timestamp: new Date(Date.now() - 180000),
-    type: "audio",
-  },
-  {
-    id: "4",
-    role: "assistant",
-    content: "Here's what I created:",
-    timestamp: new Date(Date.now() - 120000),
-    type: "image",
-  },
-];
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8000";
 
 export function ChatArea() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [documentId, setDocumentId] = useState<string | null>(null);
+  const [documentTitle, setDocumentTitle] = useState<string | null>(null);
   const hasStarted = messages.length > 0;
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    const newMsg: ChatMessage = {
+  const handleDocumentIndexed = (docId: string, title: string) => {
+    setDocumentId(docId);
+    setDocumentTitle(title);
+    // Auto-add a system message to confirm indexing
+    setMessages([
+      {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: `✅ Document **"${title}"** has been indexed! Ask me anything about it.`,
+        timestamp: new Date(),
+        type: "text",
+      },
+    ]);
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: "user",
       content: input,
       timestamp: new Date(),
       type: "text",
     };
-    setMessages((prev) => [...prev, newMsg]);
-    setInput("");
 
-    // Simulate assistant response
-    setTimeout(() => {
+    setMessages((prev) => [...prev, userMsg]);
+    const question = input;
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      if (!documentId) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: "Please upload and index a document first before asking questions!",
+            timestamp: new Date(),
+            type: "text",
+          },
+        ]);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ document_id: documentId, question }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error((errData as { detail?: string }).detail || "Query failed");
+      }
+
+      const data = await res.json() as { answer: string; reasoning_path: string[] };
+
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: "I'm processing your request. Let me work on that!",
+          content: data.answer,
+          timestamp: new Date(),
+          type: "text",
+          path: data.reasoning_path,
+        },
+      ]);
+    } catch (err: unknown) {
+      console.error("Query failed:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `❌ Error: ${err instanceof Error ? err.message : "Something went wrong. Is the backend running?"}`,
           timestamp: new Date(),
           type: "text",
         },
       ]);
-    }, 1200);
-  };
-
-  const handleStartWithSample = () => {
-    setMessages(sampleMessages);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="flex flex-col flex-1 min-w-0 section-content">
       {/* Header */}
       <div className="text-center py-4">
-        <h1 className="text-sm font-semibold text-foreground tracking-wide">Nixtio Assistant</h1>
+        <h1 className="text-sm font-semibold text-foreground tracking-wide">
+          Vectorless RAG {documentTitle && <span className="text-primary">— {documentTitle}</span>}
+        </h1>
       </div>
 
       <AnimatePresence mode="wait">
@@ -90,20 +123,15 @@ export function ChatArea() {
             transition={{ duration: 0.3 }}
           >
             <div className="text-center space-y-2">
-              <h2 className="text-lg font-semibold text-foreground">Start a new conversation</h2>
-              <p className="text-xs text-muted-foreground">Upload a document or type a message to begin</p>
+              <h2 className="text-lg font-semibold text-foreground">Upload a document to begin</h2>
+              <p className="text-xs text-muted-foreground">
+                The AI will index it into a knowledge tree, then answer your questions.
+              </p>
             </div>
 
             <div className="w-full max-w-md">
-              <FileUploadDialogue />
+              <FileUploadDialogue onDocumentIndexed={handleDocumentIndexed} />
             </div>
-
-            <button
-              onClick={handleStartWithSample}
-              className="text-xs text-primary hover:text-primary/80 transition-colors underline underline-offset-2"
-            >
-              or try a sample conversation
-            </button>
           </motion.div>
         ) : (
           <motion.div
@@ -118,12 +146,22 @@ export function ChatArea() {
               {messages.map((msg) => (
                 <ChatMessageBubble key={msg.id} message={msg} />
               ))}
+              {isLoading && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground px-2">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              )}
             </div>
 
-            {/* Retry */}
-            <div className="px-6 py-1">
-              <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-                ↻ Retry
+            {/* Retry / Upload another */}
+            <div className="px-6 py-1 flex items-center gap-3">
+              <button
+                onClick={() => { setMessages([]); setDocumentId(null); setDocumentTitle(null); }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              >
+                ↺ Upload new document
               </button>
             </div>
           </motion.div>
@@ -143,12 +181,14 @@ export function ChatArea() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Type your message..."
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            placeholder={documentId ? "Ask a question about your document..." : "Upload a document first..."}
+            disabled={isLoading}
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
           />
           <motion.button
             onClick={handleSend}
-            className="w-8 h-8 rounded-full flex items-center justify-center"
+            disabled={isLoading || !input.trim()}
+            className="w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-40"
             style={{ background: "var(--gradient-accent)" }}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
