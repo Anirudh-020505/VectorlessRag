@@ -9,6 +9,8 @@ authlib
 itsdangerous
 httpx
 google-generativeai
-unstructured[all-docs]
+unstructured
+pypdf
+python-docx
 python-multipart
 python-dotenv
