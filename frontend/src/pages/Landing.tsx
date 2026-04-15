@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { OAuthButtons } from "@/components/landing/OAuthButtons";
+// import { OAuthButtons } from "@/components/landing/OAuthButtons";
 import { ChunkVsTreeComparison } from "@/components/landing/TreeVisualization";
 import { WorkflowDiagram } from "@/components/landing/WorkflowDiagram";
 import { AssistantBot } from "@/components/AssistantBot";
@@ -28,7 +28,7 @@ function NavBar() {
         <a href="#technology" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Technology</a>
         <a href="#workflow" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Workflow</a>
       </div>
-      <OAuthButtons />
+      {/* <OAuthButtons /> */}
     </nav>
   );
 }
