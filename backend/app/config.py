@@ -4,8 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str
-    OPENAI_API_KEY: str
+    DATABASE_URL: str = ""
+    OPENAI_API_KEY: str = "caveman"
     OPENAI_BASE_URL: str = "https://cbdrt.dpdns.org/v1"
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
