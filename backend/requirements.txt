@@ -9,7 +9,7 @@ authlib
 itsdangerous
 httpx
 openai
-unstructured
+
 pypdf
 python-docx
 python-multipart

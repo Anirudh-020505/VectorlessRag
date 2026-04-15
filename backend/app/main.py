@@ -17,7 +17,7 @@ app = FastAPI(title="PageIndex Backend")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        settings.CLIENT_URL,
+        settings.CLIENT_URL,          # production frontend URL (set via env var)
         "http://localhost:5173",
         "http://localhost:8080",
         "http://localhost:3000",
