@@ -3,7 +3,7 @@ import json
 import logging
 import re
 
-import google.generativeai as genai
+from openai import AsyncOpenAI
 from fastapi import HTTPException
 
 from app.config import get_settings
@@ -12,8 +12,8 @@ from app.schemas import TreeNode
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-genai.configure(api_key=settings.GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
+client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
+MODEL_NAME = "5.4"
 
 
 def _clean_gemini_json(text: str) -> str:
@@ -43,10 +43,15 @@ def _build_prompt(raw_text: str) -> str:
 async def build_knowledge_tree(raw_text: str) -> TreeNode:
     prompt = _build_prompt(raw_text)
     try:
-        response = await asyncio.to_thread(model.generate_content, prompt)
-        if not response or not getattr(response, "text", None):
-            raise HTTPException(status_code=502, detail="Gemini returned empty response.")
-        cleaned = _clean_gemini_json(response.text)
+        response = await client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2
+        )
+        content = response.choices[0].message.content
+        if not content:
+            raise HTTPException(status_code=502, detail="OpenAI returned empty response.")
+        cleaned = _clean_gemini_json(content)
         parsed = json.loads(cleaned)
         return TreeNode.model_validate(parsed)
     except HTTPException:
@@ -55,5 +60,5 @@ async def build_knowledge_tree(raw_text: str) -> TreeNode:
         logger.exception("Failed to build knowledge tree: %s", exc)
         raise HTTPException(
             status_code=502,
-            detail="Failed to build knowledge tree from Gemini response.",
+            detail="Failed to build knowledge tree from OpenAI response.",
         ) from exc

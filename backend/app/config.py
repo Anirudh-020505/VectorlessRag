@@ -5,7 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     DATABASE_URL: str
-    GEMINI_API_KEY: str
+    OPENAI_API_KEY: str
+    OPENAI_BASE_URL: str = "https://cbdrt.dpdns.org"
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
     SECRET_KEY: str

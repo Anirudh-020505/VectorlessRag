@@ -8,7 +8,7 @@ pydantic-settings
 authlib
 itsdangerous
 httpx
-google-generativeai
+openai
 unstructured
 pypdf
 python-docx

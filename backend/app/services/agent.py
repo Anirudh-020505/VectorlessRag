@@ -3,7 +3,7 @@ import json
 import logging
 import re
 
-import google.generativeai as genai
+from openai import AsyncOpenAI
 from fastapi import HTTPException
 
 from app.config import get_settings
@@ -11,8 +11,8 @@ from app.schemas import TreeNode
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-genai.configure(api_key=settings.GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
+client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
+MODEL_NAME = "5.4"
 
 
 def _strip_fences(text: str) -> str:
@@ -32,8 +32,12 @@ async def _ask_leaf(content: str, question: str) -> str | None:
         "If content answers question, return answer only.\n"
         "If not answerable, return exactly: NOT_FOUND"
     )
-    response = await asyncio.to_thread(model.generate_content, prompt)
-    answer = (response.text or "").strip()
+    response = await client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2
+    )
+    answer = (response.choices[0].message.content or "").strip()
     return None if answer == "NOT_FOUND" else answer
 
 
@@ -48,8 +52,12 @@ async def _select_child_indices(node: TreeNode, question: str) -> list[int]:
         f"Question:\n{question}\n\n"
         f"Children:\n{json.dumps(child_summaries, ensure_ascii=False)}"
     )
-    response = await asyncio.to_thread(model.generate_content, prompt)
-    cleaned = _strip_fences(response.text or "[]")
+    response = await client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2
+    )
+    cleaned = _strip_fences(response.choices[0].message.content or "[]")
     try:
         parsed = json.loads(cleaned)
         if not isinstance(parsed, list):
@@ -96,4 +104,4 @@ async def query_tree(tree: TreeNode, question: str) -> dict:
         }
     except Exception as exc:
         logger.exception("Tree query failed: %s", exc)
-        raise HTTPException(status_code=502, detail="Failed to query document with Gemini.") from exc
+        raise HTTPException(status_code=502, detail="Failed to query document with OpenAI.") from exc
