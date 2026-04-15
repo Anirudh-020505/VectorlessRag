@@ -22,17 +22,32 @@ async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    # Attempt to load an authenticated user if a cookie exists
     token = request.cookies.get(settings.SESSION_COOKIE_NAME)
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated.")
+    user = None
+    
+    if token:
+        try:
+            user_id = signer.unsign(token, max_age=60 * 60 * 24 * 7).decode("utf-8")
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+        except (Exception):
+            # Ignore signature errors, rely on fallback
+            pass
 
-    try:
-        user_id = signer.unsign(token, max_age=60 * 60 * 24 * 7).decode("utf-8")
-    except (BadSignature, SignatureExpired):
-        raise HTTPException(status_code=401, detail="Invalid session.")
-
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=401, detail="User not found.")
+    # If no authenticated user is found, lazily auto-create and return a global anonymous user
+    if not user:
+        result = await db.execute(select(User).where(User.email == "anonymous@local.dev"))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            user = User(
+                google_id="anonymous",
+                email="anonymous@local.dev",
+                display_name="Global Test User",
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+            
     return user
