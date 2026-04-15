@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8000";
 
+console.log("Vectorless RAG - API URL:", API_BASE_URL);
+
 interface FileUploadDialogueProps {
   onDocumentIndexed?: (documentId: string, title: string) => void;
 }
