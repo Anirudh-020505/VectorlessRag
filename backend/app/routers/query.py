@@ -26,10 +26,16 @@ async def query_document(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found.")
 
+    import os
+    name, ext = os.path.splitext(document.title)
+    
     tree = TreeNode.model_validate(document.knowledge_tree)
     result_payload = await query_tree(
         tree=tree, 
         question=payload.question,
-        doc_metadata={"filename": document.title}
+        doc_metadata={
+            "name": name,
+            "extension": ext.lower().replace(".", "")
+        }
     )
     return QueryResponse(**result_payload)

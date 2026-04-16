@@ -54,9 +54,10 @@ async def query_tree(tree: TreeNode, question: str, doc_metadata: dict = None) -
     
     user_content = f"Question: {question}"
     if doc_metadata:
-        filename = doc_metadata.get("filename", "Unknown")
-        user_content = f"[Context: You are querying a document named '{filename}']\n{user_content}"
-        logger.info(f"Querying document: {filename}")
+        name = doc_metadata.get("name", "Unknown")
+        ext = doc_metadata.get("extension", "unknown")
+        user_content = f"[Context: You are querying a {ext.upper()} file named '{name}']\n{user_content}"
+        logger.info(f"Querying {ext} document: {name}")
         
     messages.append({"role": "user", "content": user_content})
     
