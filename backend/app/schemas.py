@@ -42,6 +42,7 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     reasoning_path: list[str]
+    thoughts: list[str] = Field(default_factory=list)
 
 
 class JsonIndexBody(BaseModel):

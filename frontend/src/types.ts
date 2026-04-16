@@ -21,6 +21,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   path?: string[];
+  thoughts?: string[];
   type?: 'text' | 'audio' | 'image';
 }
 

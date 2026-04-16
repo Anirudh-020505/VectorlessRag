@@ -73,8 +73,8 @@ export function ChatArea() {
         throw new Error((errData as { detail?: string }).detail || "Query failed");
       }
 
-      const data = await res.json() as { answer: string; reasoning_path: string[] };
-
+      const data = await res.json() as { answer: string; reasoning_path: string[]; thoughts?: string[] };
+      
       setMessages((prev) => [
         ...prev,
         {
@@ -84,6 +84,7 @@ export function ChatArea() {
           timestamp: new Date(),
           type: "text",
           path: data.reasoning_path,
+          thoughts: data.thoughts,
         },
       ]);
     } catch (err: unknown) {
