@@ -40,12 +40,13 @@ Action: <one of the tools below>
 TOOLS:
 1. list_node(node_id): See the title, summary, and child IDs of a specific node.
 2. read_leaf(node_id): Read the full content of a leaf node (a node with no children).
-3. answer(text): Provide the final answer to the user based on the content you've found or already know about the document.
+3. search_titles(query): Search for nodes that contain specific keywords in their titles.
+4. answer(text): Provide the final answer to the user based on the content you've found or already know about the document.
 
 RULES:
 - You can only see the children of one node at a time using 'list_node'.
 - Only use 'read_leaf' if you are confident a section contains the answer.
-- If a section doesn't have the answer, backtrack by listing a parent or another sibling.
+- If a section doesn't have the answer, backtrack or search.
 - Start by listing the root node: list_node("root") unless you can answer the question immediately.
 """
 
@@ -116,6 +117,16 @@ async def query_tree(tree: TreeNode, question: str, doc_metadata: dict = None) -
                         observation = f"Error: {node.title} is not a leaf node. Use list_node first."
                 else:
                     observation = f"Error: Node ID '{tool_args}' not found."
+            
+            elif tool_name == "search_titles":
+                results = []
+                def _search_recursive(curr: TreeNode):
+                    if tool_args.lower() in curr.title.lower():
+                        results.append({"id": curr.id, "title": curr.title, "summary": curr.summary})
+                    for child in curr.children:
+                        _search_recursive(child)
+                _search_recursive(tree)
+                observation = results if results else f"No nodes found matching '{tool_args}'."
             
             elif tool_name == "answer":
                 return {

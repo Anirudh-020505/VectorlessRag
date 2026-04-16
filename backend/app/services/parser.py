@@ -15,16 +15,17 @@ async def parse_file(file: UploadFile) -> str:
 
     try:
         if suffix == ".pdf":
-            reader = pypdf.PdfReader(io.BytesIO(content))
-            logger.info("PDF pages: %d", len(reader.pages))
-            for i, page in enumerate(reader.pages):
-                extracted = page.extract_text()
-                logger.info("Page %d extracted %d chars", i, len(extracted) if extracted else 0)
-                if extracted:
-                    text += extracted + "\n\n"
+            import pdfplumber
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                logger.info("PDF pages: %d", len(pdf.pages))
+                for i, page in enumerate(pdf.pages):
+                    extracted = page.extract_text(layout=True)
+                    logger.info("Page %d extracted %d chars", i, len(extracted) if extracted else 0)
+                    if extracted:
+                        text += extracted + "\n\n"
             if not text.strip():
-                logger.warning("pypdf extracted no text — PDF may be image-based or protected")
-                text = f"[PDF file '{file.filename}' contains {len(reader.pages)} pages but no extractable text. It may be a scanned or image-based PDF.]"
+                logger.warning("pdfplumber extracted no text — PDF may be image-based or protected")
+                text = f"[PDF file '{file.filename}' contains {len(pdf.pages)} pages but no extractable text.]"
         elif suffix in [".docx", ".doc"]:
             doc = docx.Document(io.BytesIO(content))
             for para in doc.paragraphs:

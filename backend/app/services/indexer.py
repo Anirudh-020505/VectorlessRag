@@ -24,42 +24,48 @@ def _clean_gemini_json(text: str) -> str:
     return cleaned.strip()
 
 
-def _chunk_text(text: str, max_words: int = 1500) -> list[str]:
-    words = text.split()
+def _chunk_text_structurally(text: str, max_words: int = 2500) -> list[str]:
+    # Split by double newlines to find natural section breaks
+    paragraphs = re.split(r'\n\s*\n', text)
     chunks = []
     current_chunk = []
     current_count = 0
     
-    for word in words:
-        current_chunk.append(word)
-        current_count += 1
-        if current_count >= max_words:
-            chunks.append(" ".join(current_chunk))
-            current_chunk = []
-            current_count = 0
-    
+    for para in paragraphs:
+        # Check if adding this paragraph exceeds our soft limit
+        para_word_count = len(para.split())
+        if current_count + para_word_count > max_words and current_chunk:
+            chunks.append("\n\n".join(current_chunk))
+            current_chunk = [para]
+            current_count = para_word_count
+        else:
+            current_chunk.append(para)
+            current_count += para_word_count
+            
     if current_chunk:
-        chunks.append(" ".join(current_chunk))
+        chunks.append("\n\n".join(current_chunk))
     return chunks
 
 
 def _build_chunk_prompt(raw_text: str, chunk_index: int, total_chunks: int) -> str:
     return (
-        "You are an information architect specialized in granular indexing.\n"
-        f"You are processing chunk {chunk_index + 1} of {total_chunks} of a larger document.\n"
-        "Return ONLY valid JSON matching this schema:\n"
-        '{ "id": str, "title": str, "summary": str, "content": str|null, "children": [TreeNode] }\n'
-        "Rules:\n"
-        "1) Create a detailed hierarchical structure for ONLY this chunk.\n"
-        "2) Preserve specific figures, metrics, and key terms in the summaries.\n"
-        "3) Use unique, slug-like IDs.\n\n"
-        "Chunk Content:\n"
+        "You are an expert Information Architect.\n"
+        f"You are indexing part {chunk_index + 1} of {total_chunks} of a massive document.\n"
+        "Your task is to build a high-fidelity, hierarchical Knowledge Tree for this section.\n\n"
+        "RULES:\n"
+        "1) IDENTIFY STRUCTURE: Look for headers and sub-headers to create a multi-level tree.\n"
+        "2) PRESERVE NUMBERS: Ensure every financial figure, metric, and percentage is included in the 'summary' of its respective node.\n"
+        "3) NO DATA LOSS: Do not aggregate sections too aggressively. If a section contains a table, create a specific node for it.\n"
+        "4) OUTPUT FORMAT: Return ONLY valid JSON matching this schema:\n"
+        '{ "id": str, "title": str, "summary": str, "content": str|null, "children": [TreeNode] }\n\n'
+        "Content to Index:\n"
         f"{raw_text}"
     )
 
 
 async def build_knowledge_tree(raw_text: str) -> TreeNode:
-    chunks = _chunk_text(raw_text)
+    # Use structural splitting
+    chunks = _chunk_text_structurally(raw_text)
     sub_trees = []
     
     # Stage 1: Index each chunk independently
