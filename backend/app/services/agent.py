@@ -50,15 +50,15 @@ RULES:
 
 
 async def query_tree(tree: TreeNode, question: str, doc_metadata: dict = None) -> dict:
-    context_prefix = ""
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    user_content = f"Question: {question}"
     if doc_metadata:
         filename = doc_metadata.get("filename", "Unknown")
-        context_prefix = f"You are currently querying a document named: '{filename}'.\n\n"
+        user_content = f"[Context: You are querying a document named '{filename}']\n{user_content}"
+        logger.info(f"Querying document: {filename}")
         
-    messages = [
-        {"role": "system", "content": context_prefix + SYSTEM_PROMPT},
-        {"role": "user", "content": f"Question: {question}"}
-    ]
+    messages.append({"role": "user", "content": user_content})
     
     thoughts: list[str] = []
     reasoning_path: list[str] = []
