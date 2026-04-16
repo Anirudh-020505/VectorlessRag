@@ -24,40 +24,70 @@ def _clean_gemini_json(text: str) -> str:
     return cleaned.strip()
 
 
-def _build_prompt(raw_text: str) -> str:
+def _chunk_text(text: str, max_words: int = 1500) -> list[str]:
+    words = text.split()
+    chunks = []
+    current_chunk = []
+    current_count = 0
+    
+    for word in words:
+        current_chunk.append(word)
+        current_count += 1
+        if current_count >= max_words:
+            chunks.append(" ".join(current_chunk))
+            current_chunk = []
+            current_count = 0
+    
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+    return chunks
+
+
+def _build_chunk_prompt(raw_text: str, chunk_index: int, total_chunks: int) -> str:
     return (
-        "You are an information architect.\n"
-        "Return ONLY valid JSON. No markdown. No explanation.\n"
-        "Output must match exact schema:\n"
+        "You are an information architect specialized in granular indexing.\n"
+        f"You are processing chunk {chunk_index + 1} of {total_chunks} of a larger document.\n"
+        "Return ONLY valid JSON matching this schema:\n"
         '{ "id": str, "title": str, "summary": str, "content": str|null, "children": [TreeNode] }\n'
         "Rules:\n"
-        "1) Recursively break document into logical sections.\n"
-        "2) Leaf nodes must contain content. Branch nodes must set content to null.\n"
-        "3) Every node id must be unique and slug-like.\n"
-        "4) Keep summaries concise and useful for retrieval.\n\n"
-        "Document:\n"
+        "1) Create a detailed hierarchical structure for ONLY this chunk.\n"
+        "2) Preserve specific figures, metrics, and key terms in the summaries.\n"
+        "3) Use unique, slug-like IDs.\n\n"
+        "Chunk Content:\n"
         f"{raw_text}"
     )
 
 
 async def build_knowledge_tree(raw_text: str) -> TreeNode:
-    prompt = _build_prompt(raw_text)
-    try:
-        response = await client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        content = response.choices[0].message.content
-        if not content:
-            raise HTTPException(status_code=502, detail="OpenAI returned empty response.")
-        cleaned = _clean_gemini_json(content)
-        parsed = json.loads(cleaned)
-        return TreeNode.model_validate(parsed)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Failed to build knowledge tree: %s", exc)
-        raise HTTPException(
-            status_code=502,
-            detail="Failed to build knowledge tree from OpenAI response.",
-        ) from exc
+    chunks = _chunk_text(raw_text)
+    sub_trees = []
+    
+    # Stage 1: Index each chunk independently
+    for i, chunk in enumerate(chunks):
+        prompt = _build_chunk_prompt(chunk, i, len(chunks))
+        try:
+            response = await client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            content = response.choices[0].message.content
+            if content:
+                cleaned = _clean_gemini_json(content)
+                parsed = json.loads(cleaned)
+                sub_trees.append(TreeNode.model_validate(parsed))
+        except Exception as exc:
+            logger.error(f"Failed to index chunk {i}: {exc}")
+            continue
+
+    if not sub_trees:
+        raise HTTPException(status_code=502, detail="Failed to index any document chunks.")
+
+    # Stage 2: Merge into a master tree
+    root = TreeNode(
+        id="root",
+        title="Document Overview",
+        summary="A comprehensive knowledge tree built from multiple document segments.",
+        content=None,
+        children=sub_trees
+    )
+    return root

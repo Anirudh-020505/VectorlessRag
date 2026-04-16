@@ -30,7 +30,8 @@ Your goal is to answer the user's question by browsing the tree efficiently.
 
 IMPORTANT:
 - If the user's question is about the document itself (name, extension, type) and you already have that info in your context, answer it immediately using the 'answer' tool.
-- Otherwise, use the tools below to browse the document content.
+- The document is divided into major sections (chunks). If you don't find the answer in the overview, dive deep into the specific section nodes.
+- When an answer involves specific figures or metrics (like cash flow, dates, or names), be extra persistent in exploring the detailed sub-sections.
 
 FORMAT:
 Thought: <your reasoning for the next step>
