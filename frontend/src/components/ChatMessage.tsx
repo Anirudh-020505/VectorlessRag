@@ -52,13 +52,13 @@ export function ChatMessageBubble({ message }: Props) {
               {!isUser && "😊 "}
               {message.content}
             </p>
-            {!isUser && message.thoughts && message.thoughts.length > 0 && (
+            {!isUser && Array.isArray(message.thoughts) && message.thoughts.length > 0 && (
               <div className="mt-3 pt-2 border-t border-border/20">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Reasoning Steps</p>
                 <ul className="space-y-1">
                   {message.thoughts.map((thought, i) => (
                     <li key={i} className="text-[11px] text-muted-foreground/80 italic leading-snug">
-                      • {thought}
+                      • {typeof thought === "string" ? thought : JSON.stringify(thought)}
                     </li>
                   ))}
                 </ul>

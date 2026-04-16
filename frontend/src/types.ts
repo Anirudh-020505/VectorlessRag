@@ -3,6 +3,8 @@ export interface InteractiveTreeNode {
   label: string;
   children?: InteractiveTreeNode[];
   content?: string;
+  keywords?: string[];
+  relevance_score?: number;
   modelUrl?: string;
 }
 

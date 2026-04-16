@@ -9,6 +9,8 @@ class TreeNode(BaseModel):
     summary: str
     content: str | None = None
     children: list["TreeNode"] = Field(default_factory=list)
+    # KEYWORD_PRESERVATION: Exact keywords extracted before LLM summarization
+    keywords: list[str] = Field(default_factory=list)
 
 
 class UserResponse(BaseModel):
