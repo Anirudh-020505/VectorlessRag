@@ -30,6 +30,6 @@ async def query_document(
     result_payload = await query_tree(
         tree=tree, 
         question=payload.question,
-        doc_metadata={"filename": document.filename}
+        doc_metadata={"filename": document.title}
     )
     return QueryResponse(**result_payload)
