@@ -27,5 +27,9 @@ async def query_document(
         raise HTTPException(status_code=404, detail="Document not found.")
 
     tree = TreeNode.model_validate(document.knowledge_tree)
-    result_payload = await query_tree(tree=tree, question=payload.question)
+    result_payload = await query_tree(
+        tree=tree, 
+        question=payload.question,
+        doc_metadata={"filename": document.filename}
+    )
     return QueryResponse(**result_payload)
