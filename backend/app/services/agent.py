@@ -208,9 +208,14 @@ async def query_tree(tree: TreeNode, question: str, doc_metadata: dict = None) -
                         score += 50
                     
                     # Check keywords (KEYWORD_PRESERVATION fix)
+                    # PRIORITY: Questions get higher weight since real-world tests showed questions are critical
                     for keyword in (curr.keywords or []):
                         if search_query_lower in keyword.lower() or keyword.lower() in search_query_lower:
-                            score += 75
+                            # Check if this keyword is a question (ends with ?)
+                            if keyword.rstrip().endswith('?'):
+                                score += 120  # Questions get bonus scoring
+                            else:
+                                score += 75
                     
                     if score > 0:
                         results.append({

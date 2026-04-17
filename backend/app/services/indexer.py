@@ -53,24 +53,34 @@ def _extract_keywords_from_text(text: str) -> list[str]:
     
     Extracts:
     - All heading text (lines followed by special chars or ALL CAPS)
+    - Rhetorical questions (Why/How/What questions)
     - Quoted phrases
     - Capitalized proper nouns (single & multi-word)
     - Numbers and metrics
     """
     keywords = set()
     
-    # Extract lines that look like headings (followed by === or ---, or all caps)
+    # 1. RHETORICAL QUESTIONS: Extract "Why...", "How...", "What..." questions
+    # These are critical for finding answers in FAQ-style documents
+    # Updated: Handle leading whitespace with ^\s* instead of just ^
+    question_pattern = r'^\s*((?:Why|How|What|When|Where|Which)[^?\n]*\?)'
+    for match in re.finditer(question_pattern, text, re.MULTILINE | re.IGNORECASE):
+        question = match.group(1).strip()
+        if len(question) > 5:  # Must be at least 5 chars
+            keywords.add(question)
+    
+    # 2. Extract lines that look like headings (followed by === or ---, or all caps)
     heading_pattern = r'^([A-Z][A-Za-z\s\?\!]+?)(?:[\n=\-]+|$)'
     for match in re.finditer(heading_pattern, text, re.MULTILINE):
         heading = match.group(1).strip()
         if heading and len(heading) > 2:
             keywords.add(heading)
     
-    # Extract quoted phrases
+    # 3. Extract quoted phrases
     for match in re.finditer(r'"([^"]+)"', text):
         keywords.add(match.group(1).strip())
     
-    # Extract capitalized phrases (2-4 words) - catches "Amazon Web Services", "Alexa", etc.
+    # 4. Extract capitalized phrases (2-4 words) - catches "Amazon Web Services", "Alexa", etc.
     # But avoid common words
     common_words = {'The', 'And', 'For', 'With', 'This', 'That', 'Have', 'From', 'Which', 'These', 'There'}
     for match in re.finditer(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', text):
@@ -78,17 +88,17 @@ def _extract_keywords_from_text(text: str) -> list[str]:
         if phrase not in common_words and len(phrase) > 2:
             keywords.add(phrase)
     
-    # Extract acronyms and abbreviations (2-5 capital letters)
+    # 5. Extract acronyms and abbreviations (2-5 capital letters)
     for match in re.finditer(r'\b([A-Z]{2,5})\b', text):
         acronym = match.group(1)
         if acronym not in {'I', 'A', 'B', 'C', 'D', 'E'}:  # Skip single letter things
             keywords.add(acronym)
     
-    # Extract numbers with context (dollar amounts, percentages, etc.)
+    # 6. Extract numbers with context (dollar amounts, percentages, etc.)
     for match in re.finditer(r'(\$?[\d,]+(?:\.\d+)?%?)', text):
         keywords.add(match.group(1))
     
-    logger.debug(f"Extracted {len(keywords)} keywords from chunk")
+    logger.debug(f"Extracted {len(keywords)} keywords from chunk (including {sum(1 for kw in keywords if '?' in kw)} questions)")
     return sorted(list(keywords))
 
 
