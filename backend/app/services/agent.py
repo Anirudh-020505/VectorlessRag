@@ -1,7 +1,9 @@
 import asyncio
+import math
 import json
 import logging
 import re
+from collections import Counter
 
 from openai import AsyncOpenAI
 from fastapi import HTTPException
@@ -13,6 +15,56 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
 MODEL_NAME = "gpt-5.3-chat-latest"
+TOKEN_PATTERN = re.compile(r"\b[a-z0-9]+\b", re.IGNORECASE)
+
+
+def _tokenize(text: str) -> list[str]:
+    return [t.lower() for t in TOKEN_PATTERN.findall(text or "")]
+
+
+def _node_search_text(node: TreeNode) -> str:
+    keyword_blob = " ".join(node.keywords or [])
+    # Keep content bounded so scoring stays fast even for large leaves.
+    content_snippet = (node.content or "")[:2000]
+    return f"{node.title}\n{node.summary}\n{keyword_blob}\n{content_snippet}"
+
+
+def _bm25_scores(query: str, documents: list[str], k1: float = 1.5, b: float = 0.75) -> list[float]:
+    """Compute BM25 scores for query against a list of documents."""
+    query_terms = _tokenize(query)
+    if not query_terms or not documents:
+        return [0.0] * len(documents)
+
+    tokenized_docs = [_tokenize(doc) for doc in documents]
+    doc_term_counts = [Counter(tokens) for tokens in tokenized_docs]
+    doc_lengths = [len(tokens) for tokens in tokenized_docs]
+    avgdl = (sum(doc_lengths) / len(doc_lengths)) if doc_lengths else 1.0
+    if avgdl <= 0:
+        avgdl = 1.0
+
+    n_docs = len(tokenized_docs)
+    unique_query_terms = set(query_terms)
+
+    # Document frequency per query term
+    dfs: dict[str, int] = {}
+    for term in unique_query_terms:
+        dfs[term] = sum(1 for doc_tokens in tokenized_docs if term in doc_tokens)
+
+    scores: list[float] = []
+    for idx, term_counts in enumerate(doc_term_counts):
+        score = 0.0
+        dl = doc_lengths[idx]
+        norm = 1.0 - b + b * (dl / avgdl)
+        for term in unique_query_terms:
+            tf = term_counts.get(term, 0)
+            if tf <= 0:
+                continue
+            df = dfs.get(term, 0)
+            idf = math.log(1.0 + ((n_docs - df + 0.5) / (df + 0.5)))
+            score += idf * ((tf * (k1 + 1.0)) / (tf + k1 * norm))
+        scores.append(score)
+
+    return scores
 
 
 def _find_node(node: TreeNode, node_id: str) -> TreeNode | None:
@@ -36,50 +88,63 @@ def _find_best_child_for_query(node: TreeNode, query: str) -> TreeNode | None:
         return None
     
     query_lower = query.lower()
-    query_words = set(query_lower.split())
+    query_words = set(_tokenize(query))
+
+    child_docs = [_node_search_text(child) for child in node.children]
+    bm25_per_child = _bm25_scores(query, child_docs)
     
     best_child = None
     best_score = 0
     matches = []
     
-    for child in node.children:
-        score = 0
+    for idx, child in enumerate(node.children):
+        semantic_score = 0
         
         # EXACT KEYWORD MATCH: High priority if child's keywords match query
         child_keywords = [kw.lower() for kw in (child.keywords or [])]
         child_keywords_set = set()
         for kw in child_keywords:
-            child_keywords_set.update(kw.split())
+            child_keywords_set.update(_tokenize(kw))
         
         keyword_matches = len(query_words & child_keywords_set)
         if keyword_matches > 0:
-            score += keyword_matches * 100  # Heavy weight for exact keyword matches
+            semantic_score += keyword_matches * 100  # Heavy weight for exact keyword matches
             matches.append({
                 'child': child,
                 'reason': f'keyword match: {keyword_matches} words',
-                'score': score
+                'score': semantic_score
             })
+
+        # Exact phrase query match inside keywords gets a strong bonus.
+        for kw in (child.keywords or []):
+            kw_lower = kw.lower()
+            if query_lower in kw_lower or kw_lower in query_lower:
+                semantic_score += 160 if kw.rstrip().endswith("?") else 90
         
         # TITLE MATCH: Secondary scoring
         title_lower = child.title.lower()
-        title_words = set(title_lower.split())
+        title_words = set(_tokenize(title_lower))
         title_matches = len(query_words & title_words)
         if title_matches > 0:
-            score += title_matches * 50
+            semantic_score += title_matches * 50
         
         # SUMMARY MATCH: Tertiary scoring
         summary_lower = child.summary.lower()
         summary_matches = sum(1 for word in query_words if word in summary_lower)
         if summary_matches > 0:
-            score += summary_matches * 10
+            semantic_score += summary_matches * 10
+
+        # BM25 lexical signal over title+summary+keywords+content snippet.
+        bm25_score = bm25_per_child[idx]
+        hybrid_score = semantic_score + (bm25_score * 35.0)
         
-        if score > best_score:
-            best_score = score
+        if hybrid_score > best_score:
+            best_score = hybrid_score
             best_child = child
     
     # Log the routing decision for debugging
     if best_child:
-        logger.info(f"Agent routing: query='{query[:50]}...' -> best_child='{best_child.title}' (score={best_score})")
+        logger.info(f"Agent routing (hybrid): query='{query[:50]}...' -> best_child='{best_child.title}' (score={best_score:.2f})")
         if matches:
             logger.debug(f"  Routing details: {matches}")
     
@@ -194,10 +259,22 @@ async def query_tree(tree: TreeNode, question: str, doc_metadata: dict = None) -
             elif tool_name == "search_titles":
                 results = []
                 search_query_lower = tool_args.lower()
+
+                all_nodes: list[TreeNode] = []
+
+                def _collect_nodes(curr: TreeNode):
+                    all_nodes.append(curr)
+                    for child in curr.children:
+                        _collect_nodes(child)
+
+                _collect_nodes(tree)
+
+                bm25_scores = _bm25_scores(tool_args, [_node_search_text(n) for n in all_nodes])
+                bm25_by_id = {n.id: bm25_scores[idx] for idx, n in enumerate(all_nodes)}
                 
                 def _search_recursive(curr: TreeNode):
                     # Score this node for relevance
-                    score = 0
+                    score = 0.0
                     
                     # Check title match (highest priority)
                     if search_query_lower in curr.title.lower():
@@ -216,13 +293,17 @@ async def query_tree(tree: TreeNode, question: str, doc_metadata: dict = None) -
                                 score += 120  # Questions get bonus scoring
                             else:
                                 score += 75
+
+                    # BM25 lexical score over node text; blended with heuristic score
+                    bm25_component = bm25_by_id.get(curr.id, 0.0)
+                    score += bm25_component * 35.0
                     
                     if score > 0:
                         results.append({
                             "id": curr.id,
                             "title": curr.title,
                             "summary": curr.summary[:100],  # Truncate for readability
-                            "relevance_score": score
+                            "relevance_score": round(score, 2)
                         })
                     
                     for child in curr.children:
@@ -234,7 +315,7 @@ async def query_tree(tree: TreeNode, question: str, doc_metadata: dict = None) -
                 results.sort(key=lambda x: x["relevance_score"], reverse=True)
                 
                 # Log search for debugging
-                logger.info(f"Agent search: query='{tool_args}' -> found {len(results)} results")
+                logger.info(f"Agent search (hybrid BM25): query='{tool_args}' -> found {len(results)} results")
                 
                 if results:
                     top_results = results[:5]
